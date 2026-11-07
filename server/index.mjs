@@ -4,6 +4,7 @@ import { randomBytes } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
 import { hashPassword, readUsers, tokenHash, verifyPassword, usernamePattern } from './auth.mjs';
 import { openDatabase } from './database.mjs';
+import { leaderboard } from './leaderboard.mjs';
 
 const SESSION_MS = 7 * 24 * 60 * 60 * 1000; // 登录有效期：7 天。
 const MAX_BODY = 10 * 1024 * 1024; // 含错题快照的整份账户存档，最多 10 MiB。
@@ -103,6 +104,9 @@ export async function createApi({
         throw new HttpError(401, '登录账号已改变，请下载未保存记录后刷新');
       }
       if (method === 'GET' && path === '/api/session') { send(200, { username: user.username }); return; }
+      if (method === 'GET' && path === '/api/leaderboard') {
+        send(200, { username: user.username, ...leaderboard(users, db.prepare('SELECT username, data FROM accounts').all()) }); return;
+      }
       if (method === 'GET' && path === '/api/data') {
         const account = db.prepare('SELECT data, revision FROM accounts WHERE username = ?').get(user.username);
         send(200, { username: user.username, data: JSON.parse(account.data), revision: account.revision }); return;

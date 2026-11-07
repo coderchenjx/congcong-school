@@ -1,6 +1,8 @@
 FROM node:24-bookworm-slim
 WORKDIR /app
 COPY --chown=node:node server ./server
+COPY --chown=node:node packages/core/package.json ./packages/core/package.json
+COPY --chown=node:node packages/core/src/week.ts ./packages/core/src/week.ts
 RUN mkdir /app/storage && chown node:node /app/storage
 USER node
 ENV API_HOST=0.0.0.0 API_PORT=3001 DATABASE_PATH=/app/storage/progress.sqlite USER_CONFIG=/app/config/users.json
