@@ -71,3 +71,7 @@ release-assets/
 
 # Local build verification and audio conversion cache
 deploy-output/
+
+# Server credentials, user data and task scratch files
+/server/private/
+/.agent-work/

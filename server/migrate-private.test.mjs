@@ -1,0 +1,36 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { DatabaseSync } from 'node:sqlite';
+import { randomBytes, scryptSync } from 'node:crypto';
+import { mkdir, mkdtemp, rm } from 'node:fs/promises';
+import { resolve, join } from 'node:path';
+import { migratePrivate } from './migrate-private.mjs';
+import { readUsers, verifyPassword } from './auth.mjs';
+
+test('previous Python accounts migrate with unchanged passwords and exact storage values', async t => {
+  const scratch = resolve('.agent-work');
+  await mkdir(scratch, { recursive: true });
+  const dir = await mkdtemp(join(scratch, 'migration-test-'));
+  t.after(() => rm(dir, { recursive: true }));
+  const sourcePath = join(dir, 'old.sqlite'), targetPath = join(dir, 'new.sqlite'), usersPath = join(dir, 'users.json');
+  const source = new DatabaseSync(sourcePath);
+  source.exec('CREATE TABLE users (id INTEGER PRIMARY KEY, username TEXT, password TEXT, active INTEGER); CREATE TABLE state (user_id INTEGER, key TEXT, value TEXT, revision INTEGER);');
+  const salt = randomBytes(16);
+  const hash = `scrypt$${salt.toString('base64')}$${scryptSync('migration-test-password', salt, 64).toString('base64')}`;
+  source.prepare('INSERT INTO users VALUES (?, ?, ?, ?)').run(1, 'admin', hash, 1);
+  source.prepare('INSERT INTO users VALUES (?, ?, ?, ?)').run(2, 'disabled', hash, 0);
+  const value = JSON.stringify({ version: 13, state: { xp: 42, selectedGrade: 2 } });
+  source.prepare('INSERT INTO state VALUES (?, ?, ?, ?)').run(1, 'csf-progress-v1', value, 12);
+  source.prepare('INSERT INTO state VALUES (?, ?, ?, ?)').run(1, 'csf-theme-mode', null, 13);
+  source.close();
+  assert.deepEqual(migratePrivate(sourcePath, targetPath, usersPath), { accounts: 2, allowedUsers: 1 });
+  const users = await readUsers(usersPath);
+  assert.equal(users[0].username, 'admin');
+  assert.equal(await verifyPassword('migration-test-password', users[0].passwordHash), true);
+  assert.equal(await verifyPassword('wrong-password', users[0].passwordHash), false);
+  const target = new DatabaseSync(targetPath);
+  assert.deepEqual(JSON.parse(target.prepare('SELECT data FROM accounts WHERE username = ?').get('admin').data), { 'csf-progress-v1': value });
+  assert.equal(target.prepare('SELECT count(*) AS count FROM sessions').get().count, 0);
+  target.close();
+  assert.throws(() => migratePrivate(sourcePath, targetPath, usersPath), /已存在/);
+});

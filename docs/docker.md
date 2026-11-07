@@ -1,5 +1,7 @@
 # Docker 家庭部署（issue #5）
 
+> 当前账号版：首次启动前必须[创建服务器账号](server-accounts.md#docker-部署)。Compose 现包含 Nginx 和数据 API，进度保存在命名卷；不迁移旧浏览器记录。以下资源下载与原版本验证说明继续适用。
+
 安装 Docker Desktop（Windows/macOS）或 Docker Engine + Compose（Linux）。无需安装 Node.js、Python、FFmpeg，无需 AI API Key。
 
 **当前v1.8.3**：新增人教精通五上独立教材与96条词汇听读，共85册版本，保留PEP与原有成绩。32节新增小课、216道练习、36道挑战题，新增语音使用Edge TTS；源教材与覆盖范围见[#62说明](issue-62-jingtong-2026.md)。继承长数字输入、资源增量更新、续学计时及五四制教材。
@@ -11,6 +13,8 @@
 ```sh
 git clone --branch main https://github.com/wuwangzhang1216/ChinaTextbookStudyFree.git
 cd ChinaTextbookStudyFree
+docker compose build api
+docker compose run --rm --no-deps --user root -v ./server/private:/app/config:rw api sh -c 'node server/users.mjs set learner && chown node:node /app/config/users.json'
 docker compose build --build-arg ASSETS_RELEASE=v1.8.3
 docker compose up -d --no-build --wait --wait-timeout 120
 ```

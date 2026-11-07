@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import { learnerProfiles, type LearnerProfile } from "@/lib/learnerProfiles";
+import { flushAccount } from "@/lib/accountStorage";
 
 export function LearnerProfiles() {
   const [profiles, setProfiles] = useState<LearnerProfile[]>([]);
@@ -14,24 +15,29 @@ export function LearnerProfiles() {
     try { const manager = learnerProfiles(); setProfiles(manager.list()); setActiveId(manager.activeId); }
     catch { setError("浏览器存储不可用，暂时无法管理学习档案。"); }
   }, []);
-  function switchTo(id: string) {
+  async function switchTo(id: string) {
     try {
       learnerProfiles().prepareSwitch(id);
       setSwitching(true);
+      await flushAccount();
       window.location.assign("/");
-    } catch { setError("无法切换档案，请检查浏览器存储空间后重试。"); }
+    } catch { setSwitching(false); setError("存档尚未保存，无法切换。请检查页面顶部的保存状态后重试。"); }
   }
   function save(event: FormEvent) {
     event.preventDefault(); setError("");
     try {
       const manager = learnerProfiles();
-      if (mode === "create") { switchTo(manager.create(name).id); }
+      if (mode === "create") {
+        const profile = manager.create(name);
+        setProfiles(manager.list()); setMode(null); setName("");
+        void switchTo(profile.id);
+      }
       else { manager.rename(name); setProfiles(manager.list()); setMode(null); setName(""); }
-    } catch (e) { setError(e instanceof Error && e.message.startsWith("请输入") ? e.message : "无法保存档案，请检查浏览器存储空间后重试。"); }
+    } catch (e) { setError(e instanceof Error && e.message.startsWith("请输入") ? e.message : "无法保存档案，请稍后重试。"); }
   }
   return <section className="bg-white rounded-3xl border-2 border-bg-softer p-5 mb-8" aria-labelledby="learner-heading">
     <h2 id="learner-heading" className="font-extrabold text-ink">学习档案</h2>
-    <p className="text-sm text-ink-light mt-1 mb-4">每个孩子有自己的年级、进度、错题和奖励。档案保存在当前浏览器，清除浏览器数据会丢失记录。</p>
+    <p className="text-sm text-ink-light mt-1 mb-4">每个孩子有自己的年级、进度、错题和奖励。档案保存在当前账号下，换设备登录也能继续学习。</p>
     <div className="flex flex-wrap gap-2">
       {profiles.map(p => <button key={p.id} type="button" disabled={switching || p.id === activeId}
         aria-pressed={p.id === activeId} onClick={() => switchTo(p.id)}

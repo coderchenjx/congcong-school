@@ -1,4 +1,15 @@
 services:
+  api:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    environment:
+      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:8080}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+    volumes:
+      - ./server/private:/app/config:ro
+      - learning-data:/app/storage
+    restart: unless-stopped
   web:
     image: china-textbook-study-free:local
     build:
@@ -8,3 +19,9 @@ services:
     ports:
       - "${WEB_BIND_ADDRESS:-127.0.0.1}:${WEB_PORT:-8080}:8080"
     restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  learning-data:

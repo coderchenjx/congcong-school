@@ -32,3 +32,5 @@ output/*/knowledge
 output/_quizzes_backup
 release-assets
 deploy-output
+server/private
+.agent-work

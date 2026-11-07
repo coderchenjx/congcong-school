@@ -134,7 +134,7 @@ export const REPORT_KIND_LABELS: Record<ReportKind, string> = {
 };
 
 /**
- * 🚩 一条本地报错记录（E2）：只存在本机，不上传任何服务器。
+ * 🚩 一条题目报错记录：随当前账号存档保存到服务端。
  * 「我的」页可查看与一键导出 JSON。
  */
 export interface QuestionReport {
@@ -1712,6 +1712,8 @@ export const useProgressStore = create<ProgressState>()(
     }),
     {
       name: "csf-progress-v1",
+      // AccountGate loads the authenticated server data before hydration/watchers.
+      skipHydration: true,
       storage: createJSONStorage(() => learnerLocalStorage),
       // 版本迁移：
       //   v1 → v2：新增 hearts / dailyGoal / freezes / activeLesson

@@ -17,6 +17,7 @@ function tab(session: ReturnType<typeof memory>) {
     const exports = {};cache.set(path,exports);
     const code=ts.transpileModule(readFileSync(path,'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS}}).outputText;
     const resolve=(id:string):any=>{
+      if(id === './accountStorage') return { accountStorage: storage, getAccountSnapshot: () => ({ username: 'test-account' }) };
       if(id.startsWith('@/'))return load(`apps/web/src/${id.slice(2)}.ts`);
       if(id.startsWith('./'))return load(`${path.slice(0,path.lastIndexOf('/'))}/${id.slice(2)}.ts`);
       return require(id);
@@ -27,6 +28,7 @@ function tab(session: ReturnType<typeof memory>) {
   const profiles=load('apps/web/src/lib/learnerProfiles.ts') as typeof import('../../apps/web/src/lib/learnerProfiles');
   const manager=profiles.learnerProfiles();
   const store=(load('apps/web/src/store/progress.ts') as typeof import('../../apps/web/src/store/progress')).useProgressStore;
+  store.persist.rehydrate(); // AccountGate hydrates only after authenticated data is available.
   const achievements=load('apps/web/src/lib/achievements.ts') as typeof import('../../apps/web/src/lib/achievements');
   return {manager,store,profiles,achievements,load};
 }
@@ -70,9 +72,6 @@ assert.equal(back.profiles.learnerLocalStorage.getItem('csf-theme-mode'),'dark')
 assert.equal(back.profiles.learnerSessionStorage.getItem('cstf-review-session-v1'),'first learner');
 assert.ok(back.store.getState().claimDailyReward().gems>0);
 assert.equal(back.manager.list().find(p=>p.id==='default')?.name,'姐姐');
-// The boot-time theme lookup must choose exactly the same keys as hydration.
-const bootKey=new Function('localStorage','sessionStorage',`${second.profiles.LEARNER_BOOT_SCRIPT}; return learnerKey('csf-theme-mode');`)(storage,sessionA);
-assert.equal(bootKey,back.manager.key('csf-theme-mode'));
 assert.throws(()=>back.profiles.createLearnerProfiles({getItem:storage.getItem,setItem(){throw new Error('Quota');}}).create('新档案'));
 // Edition upgrades retain old grades through the actual persisted store.
 const revisions = JSON.parse(readFileSync('content/editions/2026/catalog.json', 'utf8')).books as {legacyId: string; id: string}[];
@@ -93,7 +92,7 @@ for (const edition of revisions) {
   assert.equal(editionReload.perfectedLessons[oldId], true);
   assert.equal(editionReload.perfectedLessons[newId], undefined);
 }
-console.log('PASS latest-main learner profiles: actual v13 store, migration, independent progress/rewards/achievements/settings, reading/review/number-sense sessions, reload, theme boot and tab isolation.');
+console.log('PASS server-backed learner profiles: actual v13 store, migration, independent progress/rewards/achievements/settings, reading/review/number-sense sessions, reload and tab isolation.');
 console.log(`PASS: ${revisions.length} revised editions retain legacy grades and active book through reload; new completion and perfect rewards stay independent.`);
 // Parallel five-four books share a grade/subject with six-three books but never
 // share their progress identities or implicitly replace an explicit selection.

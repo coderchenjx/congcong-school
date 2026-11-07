@@ -1,0 +1,38 @@
+name: chinatextbookstudyfree
+services:
+  api:
+    image: ${API_IMAGE:?Set API_IMAGE to the release image}
+    restart: unless-stopped
+    environment:
+      WEB_ORIGIN: ${WEB_ORIGIN:?Set the public origin}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+    volumes:
+      - ${ACCOUNT_STATE_DIR:?Set ACCOUNT_STATE_DIR}:/app/storage
+      - ${ACCOUNT_CONFIG_DIR:?Set ACCOUNT_CONFIG_DIR}:/app/config:ro
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    logging: {driver: json-file, options: {max-size: 10m, max-file: '3'}}
+  web:
+    image: ${NGINX_IMAGE:-nginx:stable-alpine}
+    user: '101:101'
+    entrypoint: [nginx, -g, 'daemon off;']
+    restart: unless-stopped
+    ports: ['${WEB_LISTEN:-8080}:8080']
+    depends_on:
+      api: {condition: service_healthy}
+    volumes:
+      - ${NGINX_CONFIG:?Set NGINX_CONFIG}:/etc/nginx/nginx.conf:ro
+      - ${FRONTEND_DIR:?Set FRONTEND_DIR}:/usr/share/nginx/html:ro
+      - ${RESOURCE_DIR:?Set RESOURCE_DIR}/audio:/usr/share/nginx/html/audio:ro
+      - ${RESOURCE_DIR:?Set RESOURCE_DIR}/story-images:/usr/share/nginx/html/story-images:ro
+      - ${RESOURCE_DIR:?Set RESOURCE_DIR}/textbook-pages:/usr/share/nginx/html/textbook-pages:ro
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    logging: {driver: json-file, options: {max-size: 10m, max-file: '3'}}
+    healthcheck:
+      test: [CMD-SHELL, 'wget -q -O - http://127.0.0.1:8080/healthz | grep -qx ok && test -s /usr/share/nginx/html/index.html']
+      interval: 30s
+      timeout: 5s
+      retries: 3

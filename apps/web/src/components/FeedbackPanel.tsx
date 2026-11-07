@@ -191,7 +191,7 @@ export function FeedbackPanel({
                   <h3 className="text-lg font-extrabold text-ink">这道题怎么了？</h3>
                 </div>
                 <p className="text-xs text-ink-light mb-4">
-                  你的反馈只保存在本机，可以在「我的」页面查看和导出
+                  你的反馈会随账号存档保存，可以在「我的」页面查看和导出
                 </p>
                 <div className="flex flex-col gap-2.5">
                   {REPORT_OPTIONS.map(opt => (

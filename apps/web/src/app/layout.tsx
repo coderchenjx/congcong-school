@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { LEARNER_BOOT_SCRIPT } from "@/lib/learnerProfiles";
+import { AccountGate } from "@/components/AccountGate";
 import { Nunito } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
@@ -40,30 +40,18 @@ export const viewport: Viewport = {
 };
 
 /**
- * 首屏内联脚本：水合前读 localStorage，提前把 .theme-dark 挂到 <html>，
- * 防止深色用户看到一帧白底闪屏。逻辑与 ThemeProvider 保持一致：
- *   装备暗色美妆主题 强制暗；否则看三态偏好（dark / system+系统深色）。
+ * 登录前只跟随系统主题；登录后 ThemeProvider 应用账号的服务端偏好。
  * 顺带注册 Service Worker（壳层预缓存 + 课程 JSON/音频 SWR）。
  */
 const bootScript = `
 (function () {
-  ${LEARNER_BOOT_SCRIPT}
   try {
-    var DARK_THEMES = { theme_midnight: "#0F1419", theme_obsidian: "#08090C" };
-    var equipped = "";
-    try {
-      var raw = localStorage.getItem(learnerKey("csf-progress-v1"));
-      if (raw) equipped = (JSON.parse(raw).state || {}).equippedTheme || "";
-    } catch (e) {}
-    var mode = localStorage.getItem(learnerKey("csf-theme-mode"));
     var sysDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
-    var cosmeticDark = Object.prototype.hasOwnProperty.call(DARK_THEMES, equipped);
-    var dark = cosmeticDark || mode === "dark" || (mode !== "light" && sysDark);
-    if (dark) {
+    if (sysDark) {
       var root = document.documentElement;
       root.classList.add("theme-dark");
       root.style.colorScheme = "dark";
-      root.style.backgroundColor = cosmeticDark ? DARK_THEMES[equipped] : "#131F24";
+      root.style.backgroundColor = "#131F24";
     }
   } catch (e) {}
   if ("serviceWorker" in navigator && ${process.env.NODE_ENV === "production"}) {
@@ -83,16 +71,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       {/* 底部导航的高度补偿由 BottomNav 自带的占位条负责（web-lesson-15）：
           课程 / 阅读器等沉浸页导航隐藏时不再留 64px 死空隙 */}
       <body className="min-h-screen bg-bg">
-        <ThemeProvider>
-          <ToastProvider>
-            <DailyRewardWatcher />
-            <AchievementWatcher />
-            <LeagueWatcher />
-            <IntroAudioUnlock />
-            {children}
-            <BottomNav />
-          </ToastProvider>
-        </ThemeProvider>
+        <AccountGate>
+          <ThemeProvider>
+            <ToastProvider>
+              <DailyRewardWatcher />
+              <AchievementWatcher />
+              <LeagueWatcher />
+              <IntroAudioUnlock />
+              {children}
+              <BottomNav />
+            </ToastProvider>
+          </ThemeProvider>
+        </AccountGate>
       </body>
     </html>
   );

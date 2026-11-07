@@ -7,6 +7,10 @@
     "packages/*"
   ],
   "scripts": {
+    "start:api": "node server/index.mjs",
+    "users": "node server/users.mjs",
+    "test:server": "node --test server/*.test.mjs",
+    "check:account-storage": "tsx scripts/checks/account-storage.ts",
     "dev": "npm run dev --workspace=china-study-free",
     "build": "npm run build --workspace=china-study-free",
     "type-check": "npm run type-check --workspaces --if-present",

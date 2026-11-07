@@ -2,6 +2,8 @@
 
 **在线体验：[聪聪学堂](https://d3nmsqi4n72idj.cloudfront.net/)** · 支持电脑和手机浏览器，无需安装。
 
+**当前网页版本 v1.9.0**：需要管理员配置账号登录，用户数据保存到服务端 SQLite，不迁移旧浏览器记录。部署需要配套 API；[账号管理、运行与备份说明](docs/server-accounts.md)。下方 v1.8.3 Release 和在线体验描述对应原公开发布版本；教材资源仍复用 v1.8.3。
+
 <details>
 <summary>版本与资源说明</summary>
 
@@ -24,7 +26,7 @@
 **ChinaStudyFree** 希望借助 AI 的力量，改变这件事：
 
 - 📚 **覆盖小学全科**：语文、数学、英语、科学
-- 🆓 **免费使用**：不卖课、不做广告；Web 学习记录保存在当前浏览器
+- 🆓 **免费使用**：不卖课、不做广告；Web 使用管理员配置的账号，学习记录保存在服务端
 - 🤖 **AI 生成题目**：基于教材知识体系生成单元小测与知识讲解，持续接受教师复核
 - 🔊 **全站语音**：题目、选项、知识讲解均配有 TTS 语音朗读
 - 📖 **课文听读**：语文/英语课文逐句跟读，配合课本原页展示
@@ -128,11 +130,11 @@
 | **课外故事** | 每单元 2 篇 AI 分级故事 + 阅读理解题 + 儿童插画配图 |
 | **全站 TTS** | 题目、选项、讲解、故事文本均可朗读；完整包提供 119,219 个 MP3 文件；恢复内容对应的音频全部齐备，复用已有 Edge 语音并补齐缺失项，保留原路径兼容资源 |
 | **首次讲解** | 进入课程自动尝试播放，听完才解锁下一步；按钮边框光环跟随真实播放进度，不显示秒数 |
-| **学习进度** | 当前浏览器保存完成情况、正确率与阅读星级；暂无云端账号和跨设备同步 |
+| **学习进度** | 登录后在服务端保存完成情况、正确率与阅读星级；换设备登录读取已保存记录 |
 | **连击系统** | 连续答对触发连击动画与语音激励 |
 | **错题与学习报告** | 错题复习、每日目标、本周报告与家长每日学习时间限制 |
 
-浏览器可能限制首次自动播放；可点标题旁的小喇叭恢复播放。静音或播放失败时提供“阅读后继续”。清除浏览器数据会影响本地学习记录。
+浏览器可能限制首次自动播放；可点标题旁的小喇叭恢复播放。静音或播放失败时提供“阅读后继续”。学习后请确认顶部显示“已保存到服务端”。
 
 **覆盖学科与版本：**
 
@@ -162,13 +164,15 @@
 ```sh
 git clone --branch main https://github.com/wuwangzhang1216/ChinaTextbookStudyFree.git
 cd ChinaTextbookStudyFree
+docker compose build api
+docker compose run --rm --no-deps --user root -v ./server/private:/app/config:rw api sh -c 'node server/users.mjs set learner && chown node:node /app/config/users.json'
 docker compose build --build-arg ASSETS_RELEASE=v1.8.3
 docker compose up -d --no-build --wait --wait-timeout 120
 ```
 
-打开 [http://localhost:8080](http://localhost:8080)。首次构建自动下载、校验 `v1.8.3` 全部资源，复用已验证的 MP3 与转换缓存，再构建网站。
+打开 [http://localhost:8080](http://localhost:8080)，使用管理命令输出的账号密码登录。首次构建自动下载、校验 `v1.8.3` 全部资源，复用已验证的 MP3 与转换缓存，再构建网站。其他域名或 HTTPS 部署须设置 `WEB_ORIGIN` 等变量，见[服务端部署说明](docs/server-accounts.md)。
 
-**从旧版升级**：升级前备份自定义代码，在原项目根目录执行以下命令，并保留原来的 `.env`、Compose 项目名和访问协议、域名/IP、端口；如原先使用 `-p`、`-f` 等参数，以下每条 `docker compose` 命令都沿用这些参数。构建完成后再替换容器，浏览器学习记录继续保存在同一地址下。
+**从旧版升级**：升级前备份自定义代码，在原项目根目录执行以下命令，并保留原来的 `.env` 和 Compose 项目名；如原先使用 `-p`、`-f` 等参数，以下每条 `docker compose` 命令都沿用这些参数。首次升级至账号版须先按上方步骤创建服务端账号；本次不迁移旧浏览器记录。
 
 ```sh
 git switch main
@@ -219,12 +223,14 @@ py -3 scripts/install-release.py --tag v1.8.3
 
 ```bash
 npm ci
+npm run users -- set learner
+# 在单独的终端保持 API 运行：npm run start:api
 npm run dev
 ```
 
 访问 [http://localhost:3000](http://localhost:3000)。构建复用包内音频和已验证的转换缓存，无需调用在线 TTS。生产构建执行 `npm run build`，输出到 `apps/web/out/`；类型检查使用 `npm run type-check`。
 
-**直接使用现成网站**：无需 Git、Node.js 或 FFmpeg。从 Release 下载新版 `install-release.py`，执行：
+**原公开版本的现成网站（不含本次账号功能）**：无需 Git、Node.js 或 FFmpeg。从 Release 下载新版 `install-release.py`，执行：
 
 ```bash
 python3 install-release.py --tag v1.8.3 --mode static --root ChinaStudyFree-site
@@ -237,7 +243,7 @@ python3 -m http.server 8080 --directory ChinaStudyFree-site
 
 电脑使用侧栏和宽屏阅读布局，手机使用底部导航和单列阅读。此前线上版本已检查 23 类页面 × 7 种尺寸（320×568 至 1920×1080），并测试完整答题、阅读、刷新恢复、错题、商店和家长时间限制。2026-10-05 的 `main` 更新另通过 45 项线上 HTTP 检查、完整文件与媒体引用核对，并验证 320、390 和 1440 像素宽度的课程讲解播放与边框进度。手机尺寸模拟不等于真机验收：真实 iPhone/Android、抖音内置浏览器的播放和麦克风权限仍需复核。详见 [Web 深测报告](https://github.com/wuwangzhang1216/ChinaTextbookStudyFree/blob/codex/publish-tested-web/docs/web-deep-qa-2026-10-03.md)。
 
-线上使用东京区域的私有 S3 + CloudFront HTTPS，使用 AWS 提供的链接；没有 EC2/Lightsail、数据库或业务后端。按存储、请求和流量计费，没有 $7.50/月的服务器固定费用。部署步骤见 [AWS Web 部署说明](https://github.com/wuwangzhang1216/ChinaTextbookStudyFree/blob/main/docs/aws-web-deployment.md)。
+原公开线上版本使用东京区域的私有 S3 + CloudFront HTTPS，部署步骤见 [AWS Web 部署说明](https://github.com/wuwangzhang1216/ChinaTextbookStudyFree/blob/main/docs/aws-web-deployment.md)。当前账号版额外需要运行 API 和持久化数据库，不能仅部署到静态托管。
 
 ### 4. 运行 iOS 端
 

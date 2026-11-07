@@ -24,7 +24,7 @@ export default function NumberSensePage() {
             数数桌上的物品，把它们摆开后再数。再给每个人分一件，看看够不够。
           </p>
           <p className="mt-2 text-sm text-ink-light">
-            “能独立做”来自本次无提示首答；“隔天仍会”需要下一天的新题检验。学习记录只保存在本机，可以在“我的”里备份。
+            “能独立做”来自本次无提示首答；“隔天仍会”需要下一天的新题检验。学习记录随账号保存，也可以在“我的”里备份。
           </p>
         </section>
       </main>

@@ -1105,7 +1105,7 @@ export function LessonRunner({ lesson, chestSlot = null, nextLessonId }: LessonR
         <div className="flex flex-col items-center text-center">
           <Mascot mood="happy" size={96} />
           <h2 className="text-2xl font-extrabold text-ink mt-3">先休息一下？</h2>
-          <p className="text-ink-light mt-2 mb-5">进度已保存在这个浏览器，下次回来接着学。</p>
+          <p className="text-ink-light mt-2 mb-5">进度会自动保存，请确认页面顶部显示保存成功，下次登录接着学。</p>
           <div className="flex flex-col gap-3 w-full">
             <button
               onClick={() => {

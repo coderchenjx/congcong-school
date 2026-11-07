@@ -3,16 +3,14 @@
  *
  * 策略：
  *   - 壳层（导航请求 / manifest / 图标）：网络优先，失败回缓存 —— 离线也能进入上次访问过的页面
- *   - 课程数据 JSON（/data/**）与 TTS 音频（/audio/**）：stale-while-revalidate
- *     —— 先用缓存秒开，后台悄悄刷新
+ *   - 账号 API、教材数据及媒体：直接请求网络，由服务器检查登录状态
  *   - 静态构建产物（/_next/static/**，内容寻址不变）：缓存优先
  *
  * next 静态导出（output: "export"）下手写注册即可，注册脚本在 layout.tsx。
  */
 
-const VERSION = "v3";
+const VERSION = "v5";
 const SHELL_CACHE = `ctsf-shell-${VERSION}-jingtong-v1.8.3`;
-const DATA_CACHE = `ctsf-data-${VERSION}-jingtong-v1.8.3`;
 const STATIC_CACHE = `ctsf-static-${VERSION}`;
 
 const SHELL_PRECACHE = [
@@ -34,7 +32,7 @@ self.addEventListener("install", event => {
 });
 
 self.addEventListener("activate", event => {
-  const keep = new Set([SHELL_CACHE, DATA_CACHE, STATIC_CACHE]);
+  const keep = new Set([SHELL_CACHE, STATIC_CACHE]);
   event.waitUntil(
     caches
       .keys()
@@ -91,16 +89,12 @@ self.addEventListener("fetch", event => {
   if (request.method !== "GET" || request.headers.has("range")) return;
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+  // Authenticated responses must never enter shared offline caches.
+  if (/^\/(api|data|audio|story-images|textbook-pages)\//.test(url.pathname)) return;
   // Review explicitly asks for current lesson JSON. An SW cache must not defeat
   // this request and resurrect an invalid historical answer.
   if (request.cache === "no-store") {
     event.respondWith(fetch(request));
-    return;
-  }
-
-  // 课程 JSON 与音频：stale-while-revalidate
-  if (url.pathname.startsWith("/data/") || url.pathname.startsWith("/audio/")) {
-    event.respondWith(staleWhileRevalidate(DATA_CACHE, request));
     return;
   }
 

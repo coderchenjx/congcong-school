@@ -10,6 +10,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useProgressStore } from "@/store/progress";
+import { flushAccount } from "@/lib/accountStorage";
 import { Mascot } from "@/components/Mascot";
 import { SpeechBubble } from "@/components/SpeechBubble";
 import { Apple, Sprout, Tree, Butterfly, Rocket, Trophy, type IconProps } from "@/components/LearningIcon";
@@ -38,17 +39,25 @@ export function GradePicker() {
   const setSelectedGrade = useProgressStore(s => s.setSelectedGrade);
   const [picked, setPicked] = useState<number | null>(null);
 
-  function handleContinue() {
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  async function handleContinue() {
     if (picked == null) return;
+    setSaving(true); setError("");
     playSfx("star");
     haptic("success");
     setSelectedGrade(picked);
     // 用硬跳转避免 next.js (output: export + trailingSlash) router.push 偶发 404
-    window.location.assign(`/grade/${picked}/`);
+    try {
+      await flushAccount();
+      window.location.assign(`/grade/${picked}/`);
+    } catch {
+      setSaving(false); setError("暂时无法保存，请检查网络后重试。");
+    }
   }
 
   return (
-    <main aria-label="选择年级" className="fixed inset-0 z-50 bg-bg flex flex-col">
+    <main aria-label="选择年级" className="min-h-screen bg-bg flex flex-col">
       <div className="flex-1 flex flex-col items-center justify-start pt-4 sm:pt-10 px-5 overflow-y-auto pb-6">
         {/* 顶部 mascot + 气泡 */}
         <motion.div
@@ -72,6 +81,7 @@ export function GradePicker() {
               <motion.button
                 key={opt.grade}
                 type="button"
+                disabled={saving}
                 aria-pressed={selected}
                 initial={{ opacity: 0, x: 12 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -125,6 +135,7 @@ export function GradePicker() {
 
       {/* 底部 sticky 继续按钮 */}
       <div className="shrink-0 border-t-2 border-bg-softer bg-white" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
+        {error && <p role="alert" className="px-5 pt-3 text-center text-danger">{error}</p>}
         <div className="max-w-md mx-auto px-5 py-4 flex justify-end">
           <AnimatePresence>
             {picked != null && (
@@ -134,9 +145,10 @@ export function GradePicker() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 8 }}
                 onClick={handleContinue}
+                disabled={saving}
                 className="btn-chunky-primary w-full px-10"
               >
-                继续
+                {saving ? "正在保存…" : "继续"}
               </motion.button>
             )}
           </AnimatePresence>

@@ -11,6 +11,7 @@ import {
   type QuestionReport,
 } from "@/store/progress";
 import { validateBackup, type BackupEnvelope } from "@cstf/core/backup";
+import { flushAccount } from "@/lib/accountStorage";
 import { Mascot } from "@/components/Mascot";
 import { Modal } from "@/components/Modal";
 import { useToast } from "@/components/Toast";
@@ -339,15 +340,19 @@ function BackupSection() {
     setPending({ envelope: result.data, repairs: result.errors });
   }
 
-  function handleConfirmImport() {
+  async function handleConfirmImport() {
     if (!pending || importing) return;
     setImporting(true);
     playSfx("unlock");
     haptic("success");
     importBackup(pending.envelope);
-    toast.success("存档导入成功，正在刷新…", 2400);
-    // 全量刷新：让所有页面 / watcher 基于新进度重算
-    window.setTimeout(() => window.location.reload(), 800);
+    try {
+      await flushAccount();
+      window.location.reload();
+    } catch {
+      toast.error("导入记录尚未保存，请检查页面顶部的保存状态后重试。");
+      setPending(null); setImporting(false);
+    }
   }
 
   const d = pending?.envelope.data;
@@ -368,7 +373,7 @@ function BackupSection() {
         </span>
       </div>
       <div className="text-xs text-ink-light mb-3">
-        导出一个存档文件保存好；换设备或换到 iPhone 上，导入就能接着学
+        学习记录自动保存到服务端；也可以导出备份文件，或导入已有存档
       </div>
       <div className="flex flex-wrap gap-2">
         <button
@@ -496,7 +501,7 @@ function ReportsSection() {
         )}
       </div>
       <div className="text-xs text-ink-light mb-3">
-        答题时报告的题目问题会记录在这里 · 只保存在本机，不会上传
+        答题时报告的题目问题会随账号存档保存，可在这里查看和导出
       </div>
 
       {reports.length === 0 ? (

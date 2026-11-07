@@ -1,3 +1,5 @@
+import { accountStorage, getAccountSnapshot } from "./accountStorage";
+
 /** Each loaded tab keeps its learner, even when another tab switches learners. */
 export interface LearnerProfile { id: string; name: string }
 const PROFILES_KEY = "csf-learners-v1";
@@ -57,9 +59,12 @@ export function createLearnerProfiles(storage: Pick<Storage, "getItem" | "setIte
 let client: ReturnType<typeof createLearnerProfiles> | undefined;
 export function learnerProfiles() {
   if (!client) {
-    let session: Storage | undefined;
-    try { session = window.sessionStorage; } catch { /* Browser may restrict session storage separately. */ }
-    client = createLearnerProfiles(window.localStorage, session);
+    const prefix = `csf-account:${getAccountSnapshot().username}:`;
+    const session = {
+      getItem: (key: string) => window.sessionStorage.getItem(prefix + key),
+      setItem: (key: string, value: string) => window.sessionStorage.setItem(prefix + key, value),
+    };
+    client = createLearnerProfiles(accountStorage, session);
   }
   return client;
 }
@@ -70,39 +75,11 @@ export function learnerStorageKey(base: string): string {
   catch { return base; } // Single-learner mode remains usable with restricted storage.
 }
 
-/** All browser state, including review/reading sessions, follows the tab's learner. */
-function scopedStorage(provider: () => Storage) {
-  const memory = new Map<string, string>();
-  return {
-    getItem(base: string): string | null {
-      const key = learnerStorageKey(base);
-      if (memory.has(key)) return memory.get(key)!;
-      try { return provider().getItem(key); } catch { return null; }
-    },
-    setItem(base: string, value: string) {
-      const key = learnerStorageKey(base);
-      try { provider().setItem(key, value); memory.delete(key); }
-      catch { memory.set(key, value); }
-    },
-    removeItem(base: string) {
-      const key = learnerStorageKey(base);
-      memory.delete(key);
-      try { provider().removeItem(key); } catch { /* Memory-only session. */ }
-    },
-  };
-}
-export const learnerLocalStorage = scopedStorage(() => localStorage);
-export const learnerSessionStorage = scopedStorage(() => sessionStorage);
-
-/** Keep the pre-hydration theme lookup aligned with the tab's learner. */
-export const LEARNER_BOOT_SCRIPT = `
-  var learnerId = "default";
-  try {
-    var selectedLearner = null;
-    try { selectedLearner = sessionStorage.getItem(${JSON.stringify(ACTIVE_KEY)}); } catch (e) {}
-    selectedLearner = selectedLearner || localStorage.getItem(${JSON.stringify(ACTIVE_KEY)});
-    var learners = JSON.parse(localStorage.getItem(${JSON.stringify(PROFILES_KEY)}) || "[]");
-    if (Array.isArray(learners) && learners.some(function (p) { return p && p.id === selectedLearner && /^[a-zA-Z0-9-]+$/.test(p.id); })) learnerId = selectedLearner;
-  } catch (e) {}
-  function learnerKey(base) { return learnerId === "default" ? base : base + ":learner:" + learnerId; }
-`;
+/** All account data follows the current tab's learner. */
+export const learnerLocalStorage = {
+  getItem(base: string) { return accountStorage.getItem(learnerStorageKey(base)); },
+  setItem(base: string, value: string) { accountStorage.setItem(learnerStorageKey(base), value); },
+  removeItem(base: string) { accountStorage.removeItem(learnerStorageKey(base)); },
+};
+// Reading/review drafts also follow the account across browser sessions/devices.
+export const learnerSessionStorage = learnerLocalStorage;
